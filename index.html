@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보험 고객 관리</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 14px; }
+  input, select, textarea, button { font-family: inherit; }
+  #loginScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 16px; }
+  #loginScreen h1 { font-size: 22px; font-weight: 500; }
+  #loginScreen p { color: #666; font-size: 13px; }
+  .login-box { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 2rem; width: 320px; display: flex; flex-direction: column; gap: 12px; }
+  .login-box input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
+  .login-box button { padding: 10px; border: none; border-radius: 8px; background: #185FA5; color: #fff; font-size: 14px; cursor: pointer; }
+  .login-box button:hover { background: #0C447C; }
+  .login-error { color: #A32D2D; font-size: 12px; text-align: center; display: none; }
+  #appScreen { display: none; max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; flex-wrap: wrap; }
+  .topbar h2 { font-size: 18px; font-weight: 500; }
+  .topbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .user-info { font-size: 13px; color: #666; }
+  .search-wrap { position: relative; }
+  .search-wrap input { padding: 6px 10px 6px 28px; width: 200px; font-size: 13px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  .search-icon { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 14px; pointer-events: none; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat { background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 0.75rem 1rem; }
+  .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .stat-val { font-size: 22px; font-weight: 500; }
+  .stat-val.blue { color: #185FA5; }
+  .stat-val.green { color: #3B6D11; }
+  .stat-val.amber { color: #854F0B; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filter-label { font-size: 12px; color: #888; }
+  .filter-btn { padding: 4px 10px; font-size: 12px; border-radius: 20px; border: 1px solid #ddd; background: transparent; color: #888; cursor: pointer; }
+  .filter-btn.active { background: #185FA5; color: #fff; border-color: #185FA5; }
+  .btn { padding: 6px 14px; font-size: 13px; border-radius: 8px; border: 1px solid #ddd; background: #fff; color: #1a1a1a; cursor: pointer; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #185FA5; color: #fff; border-color: #185FA5; }
+  .btn-primary:hover { background: #0C447C; }
+  .btn-danger { background: #A32D2D; color: #fff; border-color: #A32D2D; }
+  .btn-danger:hover { background: #791F1F; }
+  .btn-sm { padding: 3px 10px; font-size: 12px; }
+  #logoutBtn { padding: 4px 10px; font-size: 12px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; color: #888; }
+  .tbl-wrap { overflow-x: auto; border: 1px solid #eee; border-radius: 10px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th { background: #fafafa; color: #888; font-weight: 500; padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; cursor: pointer; white-space: nowrap; }
+  th:hover { color: #1a1a1a; }
+  td { padding: 9px 10px; border-bottom: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr.selected td { background: #EBF4FF; }
+  tr:hover td { background: #fafafa; cursor: pointer; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 20px; }
+  .badge-active { background: #EAF3DE; color: #27500A; }
+  .badge-pending { background: #FAEEDA; color: #633806; }
+  .badge-lapsed { background: #FCEBEB; color: #791F1F; }
+  .badge-db { background: #E6F1FB; color: #0C447C; }
+  .badge-ref { background: #EEEDFE; color: #3C3489; }
+  .pri-high { color: #A32D2D; font-weight: 500; }
+  .pri-mid { color: #BA7517; font-weight: 500; }
+  .pri-low { color: #639922; }
+  .warn-tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #FAEEDA; color: #633806; margin-left: 4px; }
+  .detail-panel { display: none; background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
+  .detail-panel.open { display: block; }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+  .detail-avatar { width: 44px; height: 44px; border-radius: 50%; background: #E6F1FB; display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 15px; color: #0C447C; flex-shrink: 0; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+  .detail-item label { font-size: 11px; color: #888; display: block; margin-bottom: 2px; }
+  .detail-item span { font-size: 13px; }
+  .section-sep { font-size: 12px; font-weight: 500; color: #888; border-bottom: 1px solid #eee; padding-bottom: 4px; margin: 1rem 0 0.75rem; }
+  .memo-box { background: #f9f9f9; border-radius: 8px; padding: 0.75rem; font-size: 13px; color: #555; line-height: 1.6; }
+  .modal-bg { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); align-items: flex-start; justify-content: center; padding: 2rem; z-index: 100; overflow-y: auto; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; border: 1px solid #eee; padding: 1.5rem; width: 100%; max-width: 580px; margin: auto; }
+  .modal-title { font-size: 16px; font-weight: 500; margin-bottom: 1rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 12px; color: #888; }
+  .form-group input, .form-group select, .form-group textarea { font-size: 13px; padding: 7px 9px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #1a1a1a; }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .rrnwrap { display: flex; gap: 6px; align-items: center; }
+  .rrnwrap input { flex: 1; font-size: 13px; padding: 7px 9px; border: 1px solid #ddd; border-radius: 8px; }
+  .section-label { font-size: 11px; font-weight: 500; color: #888; background: #fafafa; padding: 4px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin: 0.75rem 0 0.5rem; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h1>보험 고객 관리</h1>
+  <div class="login-box">
+    <input type="email" id="loginEmail" placeholder="이메일">
+    <input type="password" id="loginPassword" placeholder="비밀번호 (6자 이상)">
+    <button onclick="doLogin()">로그인</button>
+    <button onclick="doRegister()" style="background:#444">처음 사용 시 계정 만들기</button>
+    <p class="login-error" id="loginError"></p>
+  </div>
+</div>
+
+<div id="appScreen">
+  <div class="topbar">
+    <h2>보험 고객 관리</h2>
+    <div class="topbar-right">
+      <span class="user-info" id="userName"></span>
+      <div class="search-wrap">
+        <span class="search-icon">&#9906;</span>
+        <input type="text" id="searchInput" placeholder="이름, 전화번호 검색..." oninput="render()">
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">+ 고객 추가</button>
+      <button id="logoutBtn">로그아웃</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-label">전체 고객</div><div class="stat-val" id="statTotal">0</div></div>
+    <div class="stat"><div class="stat-label">계약 유지</div><div class="stat-val green" id="statActive">0</div></div>
+    <div class="stat"><div class="stat-label">후속조치 필요</div><div class="stat-val amber" id="statFollow">0</div></div>
+    <div class="stat"><div class="stat-label">우선순위 높음</div><div class="stat-val blue" id="statHigh">0</div></div>
+  </div>
+  <div class="filter-row">
+    <span class="filter-label">계약상태:</span>
+    <button class="filter-btn active" data-fkey="status" onclick="setFilter('status','전체',this)">전체</button>
+    <button class="filter-btn" data-fkey="status" onclick="setFilter('status','유지',this)">유지</button>
+    <button class="filter-btn" data-fkey="status" onclick="setFilter('status','진행중',this)">진행중</button>
+    <button class="filter-btn" data-fkey="status" onclick="setFilter('status','실효',this)">실효</button>
+    <span class="filter-label" style="margin-left:8px">구분:</span>
+    <button class="filter-btn active" data-fkey="type" onclick="setFilter('type','전체',this)">전체</button>
+    <button class="filter-btn" data-fkey="type" onclick="setFilter('type','DB',this)">DB</button>
+    <button class="filter-btn" data-fkey="type" onclick="setFilter('type','지인',this)">지인</button>
+    <span class="filter-label" style="margin-left:8px">후속:</span>
+    <button class="filter-btn active" data-fkey="follow" onclick="setFilter('follow','전체',this)">전체</button>
+    <button class="filter-btn" data-fkey="follow" onclick="setFilter('follow','필요',this)">필요</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:80px" onclick="sortBy('name')">이름 <span id="sort-name"></span></th>
+          <th style="width:110px" onclick="sortBy('phone')">전화번호 <span id="sort-phone"></span></th>
+          <th style="width:130px">주민등록번호</th>
+          <th style="width:65px" onclick="sortBy('job')">직업 <span id="sort-job"></span></th>
+          <th style="width:70px" onclick="sortBy('status')">계약상태 <span id="sort-status"></span></th>
+          <th style="width:55px" onclick="sortBy('type')">구분 <span id="sort-type"></span></th>
+          <th style="width:100px" onclick="sortBy('insurer')">등록 보험사 <span id="sort-insurer"></span></th>
+          <th style="width:95px" onclick="sortBy('lastMeeting')">최근 미팅 <span id="sort-lastMeeting"></span></th>
+          <th style="width:65px" onclick="sortBy('priority')">우선순위 <span id="sort-priority"></span></th>
+          <th style="width:60px">후속조치</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="detail-panel" id="detailPanel"></div>
+  <div class="modal-bg" id="modalBg">
+    <div class="modal">
+      <div class="modal-title" id="modalTitle">고객 추가</div>
+      <div class="section-label">기본 정보</div>
+      <div class="form-grid">
+        <div class="form-group"><label>이름 *</label><input id="f-name" placeholder="홍길동"></div>
+        <div class="form-group"><label>전화번호</label><input id="f-phone" placeholder="010-0000-0000"></div>
+        <div class="form-group full">
+          <label>주민등록번호 <span class="warn-tag">민감정보</span></label>
+          <div class="rrnwrap">
+            <input id="f-rrn1" placeholder="앞 6자리" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'');if(this.value.length===6)document.getElementById('f-rrn2').focus()">
+            <span>—</span>
+            <input id="f-rrn2" placeholder="뒤 7자리" maxlength="7" oninput="this.value=this.value.replace(/\D/g,'')">
+          </div>
+        </div>
+        <div class="form-group"><label>직업</label><input id="f-job" placeholder="직업"></div>
+        <div class="form-group"><label>주소</label><input id="f-address" placeholder="주소"></div>
+      </div>
+      <div class="section-label">계약 정보</div>
+      <div class="form-grid">
+        <div class="form-group"><label>계약상태</label>
+          <select id="f-status"><option>유지</option><option>진행중</option><option>실효</option></select>
+        </div>
+        <div class="form-group"><label>지인/DB 구분</label>
+          <select id="f-type"><option>지인</option><option>DB</option></select>
+        </div>
+        <div class="form-group"><label>등록 보험사</label><input id="f-insurer" placeholder="삼성생명, KB손보..."></div>
+        <div class="form-group"><label>계약내용</label><input id="f-contract" placeholder="종신보험, 실손..."></div>
+        <div class="form-group"><label>계약일자</label><input id="f-contractDate" type="date"></div>
+        <div class="form-group"><label>최근 미팅일</label><input id="f-lastMeeting" type="date"></div>
+        <div class="form-group"><label>우선순위</label>
+          <select id="f-priority"><option>높음</option><option>중간</option><option>낮음</option></select>
+        </div>
+        <div class="form-group"><label>후속조치 필요</label>
+          <select id="f-follow"><option>필요</option><option>불필요</option></select>
+        </div>
+      </div>
+      <div class="section-label">기타</div>
+      <div class="form-grid">
+        <div class="form-group full"><label>병력</label><input id="f-health" placeholder="특이사항 없음"></div>
+        <div class="form-group full"><label>메모</label><textarea id="f-memo" placeholder="메모를 입력하세요..."></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">취소</button>
+        <button class="btn btn-primary" onclick="saveClient()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAqrRdMTBdvFp_-AF9rj_aV8Dar7akRIgU",
+  authDomain: "insurance-crm-83b5f.firebaseapp.com",
+  projectId: "insurance-crm-83b5f",
+  storageBucket: "insurance-crm-83b5f.firebasestorage.app",
+  messagingSenderId: "495890437719",
+  appId: "1:495890437719:web:4c82d99ced98abd90ef512"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const SECRET = "my-secret-key-change-this-2024";
+function encrypt(text) { if (!text) return ""; return btoa(unescape(encodeURIComponent(SECRET + "|" + text))); }
+function decrypt(cipher) { if (!cipher) return ""; try { const d = decodeURIComponent(escape(atob(cipher))); return d.startsWith(SECRET + "|") ? d.slice(SECRET.length + 1) : cipher; } catch { return ""; } }
+function maskRrn(rrn) { if (!rrn) return "-"; const p = rrn.split("-"); return p.length === 2 ? p[0] + "-" + p[1][0] + "******" : rrn.slice(0,6) + "-" + rrn[6] + "******"; }
+
+let clients = [], filters = { status:"전체", type:"전체", follow:"전체" }, sortCol = "", sortDir = 1, selectedId = null, rrnRevealed = {}, editingId = null;
+let currentUser = null;
+
+window.doLogin = async function() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pw = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+    errEl.style.display = "none";
+  } catch(e) {
+    errEl.style.display = "block";
+    errEl.textContent = "이메일 또는 비밀번호가 틀렸습니다";
+  }
+};
+
+window.doRegister = async function() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pw = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  if (!email || !pw) { errEl.style.display="block"; errEl.textContent="이메일과 비밀번호를 입력해주세요"; return; }
+  if (pw.length < 6) { errEl.style.display="block"; errEl.textContent="비밀번호는 6자 이상이어야 합니다"; return; }
+  try {
+    await createUserWithEmailAndPassword(auth, email, pw);
+    errEl.style.display = "none";
+  } catch(e) {
+    errEl.style.display = "block";
+    errEl.textContent = "계정 생성 실패: " + e.message;
+  }
+};
+
+document.getElementById("logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("appScreen").style.display = "block";
+    document.getElementById("userName").textContent = user.email;
+    loadClients();
+  } else {
+    currentUser = null;
+    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("appScreen").style.display = "none";
+  }
+});
+
+async function loadClients() {
+  if (!currentUser) return;
+  try {
+    // 각 사용자의 uid로 본인 데이터만 불러오기
+    const q = query(collection(db, "clients"), where("uid", "==", currentUser.uid), orderBy("name"));
+    const snap = await getDocs(q);
+    clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  } catch(e) { console.error(e); }
+}
+
+function statusBadge(s) { return s==="유지"?`<span class="badge badge-active">유지</span>`:s==="진행중"?`<span class="badge badge-pending">진행중</span>`:`<span class="badge badge-lapsed">실효</span>`; }
+function typeBadge(t) { return t==="DB"?`<span class="badge badge-db">DB</span>`:`<span class="badge badge-ref">지인</span>`; }
+function priClass(p) { return p==="높음"?"pri-high":p==="중간"?"pri-mid":"pri-low"; }
+
+function render() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+  let list = clients.filter(c => {
+    if (filters.status!=="전체"&&c.status!==filters.status) return false;
+    if (filters.type!=="전체"&&c.type!==filters.type) return false;
+    if (filters.follow!=="전체"&&c.follow!==filters.follow) return false;
+    if (q&&!c.name?.toLowerCase().includes(q)&&!c.phone?.includes(q)) return false;
+    return true;
+  });
+  if (sortCol) list.sort((a,b) => { const av=a[sortCol]||"",bv=b[sortCol]||""; return av<bv?-sortDir:av>bv?sortDir:0; });
+  document.getElementById("statTotal").textContent = clients.length;
+  document.getElementById("statActive").textContent = clients.filter(c=>c.status==="유지").length;
+  document.getElementById("statFollow").textContent = clients.filter(c=>c.follow==="필요").length;
+  document.getElementById("statHigh").textContent = clients.filter(c=>c.priority==="높음").length;
+  const tbody = document.getElementById("tableBody");
+  if (!list.length) { tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:2rem;color:#aaa">검색 결과가 없습니다</td></tr>`; return; }
+  tbody.innerHTML = list.map(c=>`<tr class="${selectedId===c.id?"selected":""}" onclick="selectClient('${c.id}')"><td style="font-weight:500">${c.name}</td><td>${c.phone||"-"}</td><td style="font-family:monospace;font-size:12px">${maskRrn(decrypt(c.rrn))}</td><td>${c.job||"-"}</td><td>${statusBadge(c.status)}</td><td>${typeBadge(c.type)}</td><td>${c.insurer||"-"}</td><td>${c.lastMeeting||"-"}</td><td class="${priClass(c.priority)}">${c.priority}</td><td>${c.follow==="필요"?'<span style="color:#A32D2D;font-weight:500">필요</span>':'<span style="color:#aaa">-</span>'}</td></tr>`).join("");
+}
+window.render = render;
+
+window.setFilter = function(key,val,btn) {
+  filters[key]=val;
+  btn.closest(".filter-row").querySelectorAll(".filter-btn").forEach(b=>{ if(b.dataset.fkey===key) b.classList.remove("active"); });
+  btn.classList.add("active"); render();
+};
+window.sortBy = function(col) {
+  if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
+  document.querySelectorAll("[id^='sort-']").forEach(el=>el.textContent="");
+  const el=document.getElementById("sort-"+col); if(el) el.textContent=sortDir===1?" ↑":" ↓";
+  render();
+};
+window.selectClient = function(id) {
+  selectedId=selectedId===id?null:id; render();
+  const panel=document.getElementById("detailPanel");
+  if(!selectedId){panel.className="detail-panel";return;}
+  const c=clients.find(x=>x.id===id); const rrn=decrypt(c.rrn); rrnRevealed[id]=false;
+  const initials=c.name?.slice(0,1)+(c.name?.length>1?c.name.slice(-1):"");
+  panel.className="detail-panel open";
+  panel.innerHTML=`<div class="detail-header"><div style="display:flex;gap:12px;align-items:center"><div class="detail-avatar">${initials}</div><div><div style="font-size:16px;font-weight:500">${c.name}</div><div style="font-size:13px;color:#888">${c.job||""} · ${typeBadge(c.type)}</div></div></div><div style="display:flex;gap:8px"><button class="btn btn-sm" onclick="openEditModal('${id}')">수정</button><button class="btn btn-sm btn-danger" onclick="confirmDelete('${id}')">삭제</button></div></div><div class="section-sep">기본 정보</div><div class="detail-grid"><div class="detail-item"><label>전화번호</label><span>${c.phone||"-"}</span></div><div class="detail-item"><label>주소</label><span>${c.address||"-"}</span></div><div class="detail-item" style="grid-column:1/-1"><label>주민등록번호 <span class="warn-tag">민감정보</span></label><span style="display:inline-flex;align-items:center;gap:8px;font-family:monospace"><span id="rrn-val-${id}">${maskRrn(rrn)}</span><button class="btn btn-sm" id="rrn-btn-${id}" onclick="toggleRrn('${id}','${encodeURIComponent(rrn)}')">확인</button></span></div><div class="detail-item"><label>계약상태</label><span>${statusBadge(c.status)}</span></div><div class="detail-item"><label>우선순위</label><span class="${priClass(c.priority)}">${c.priority}</span></div></div><div class="section-sep">계약 정보</div><div class="detail-grid"><div class="detail-item"><label>등록 보험사</label><span>${c.insurer||"-"}</span></div><div class="detail-item"><label>계약내용</label><span>${c.contract||"-"}</span></div><div class="detail-item"><label>계약일자</label><span>${c.contractDate||"-"}</span></div><div class="detail-item"><label>최근 미팅</label><span>${c.lastMeeting||"-"}</span></div><div class="detail-item"><label>후속조치</label><span>${c.follow}</span></div><div class="detail-item"><label>병력</label><span style="color:#BA7517">${c.health||"-"}</span></div></div><div class="section-sep">메모</div><div class="memo-box">${c.memo||"메모 없음"}</div>`;
+};
+window.toggleRrn = function(id,encoded) {
+  rrnRevealed[id]=!rrnRevealed[id]; const rrn=decodeURIComponent(encoded);
+  document.getElementById("rrn-val-"+id).textContent=rrnRevealed[id]?rrn:maskRrn(rrn);
+  document.getElementById("rrn-btn-"+id).textContent=rrnRevealed[id]?"숨기기":"확인";
+};
+window.confirmDelete = function(id) {
+  if(confirm("정말 삭제하시겠습니까?")) { deleteDoc(doc(db,"clients",id)); clients=clients.filter(c=>c.id!==id); selectedId=null; document.getElementById("detailPanel").className="detail-panel"; render(); }
+};
+window.openAddModal = function() {
+  editingId=null; document.getElementById("modalTitle").textContent="고객 추가";
+  ["name","phone","job","address","insurer","contract","health","memo"].forEach(k=>{ const el=document.getElementById("f-"+k); if(el) el.value=""; });
+  document.getElementById("f-rrn1").value=""; document.getElementById("f-rrn2").value="";
+  ["contractDate","lastMeeting"].forEach(k=>document.getElementById("f-"+k).value="");
+  document.getElementById("f-status").value="유지"; document.getElementById("f-type").value="지인";
+  document.getElementById("f-priority").value="중간"; document.getElementById("f-follow").value="불필요";
+  document.getElementById("modalBg").className="modal-bg open";
+};
+window.openEditModal = function(id) {
+  editingId=id; const c=clients.find(x=>x.id===id);
+  document.getElementById("modalTitle").textContent="고객 수정";
+  document.getElementById("f-name").value=c.name||""; document.getElementById("f-phone").value=c.phone||"";
+  const rrn=decrypt(c.rrn); const parts=rrn.split("-");
+  document.getElementById("f-rrn1").value=parts[0]||""; document.getElementById("f-rrn2").value=parts[1]||"";
+  document.getElementById("f-job").value=c.job||""; document.getElementById("f-address").value=c.address||"";
+  document.getElementById("f-status").value=c.status||"유지"; document.getElementById("f-type").value=c.type||"지인";
+  document.getElementById("f-insurer").value=c.insurer||""; document.getElementById("f-contract").value=c.contract||"";
+  document.getElementById("f-contractDate").value=c.contractDate||""; document.getElementById("f-lastMeeting").value=c.lastMeeting||"";
+  document.getElementById("f-priority").value=c.priority||"중간"; document.getElementById("f-follow").value=c.follow||"불필요";
+  document.getElementById("f-health").value=c.health||""; document.getElementById("f-memo").value=c.memo||"";
+  document.getElementById("modalBg").className="modal-bg open";
+};
+window.closeModal = function() { document.getElementById("modalBg").className="modal-bg"; };
+window.saveClient = async function() {
+  const name=document.getElementById("f-name").value.trim(); if(!name){alert("이름을 입력해주세요");return;}
+  const rrn1=document.getElementById("f-rrn1").value.trim(); const rrn2=document.getElementById("f-rrn2").value.trim();
+  const data={
+    uid: currentUser.uid, // 사용자 고유 ID 저장
+    name,phone:document.getElementById("f-phone").value,rrn:encrypt(rrn1&&rrn2?rrn1+"-"+rrn2:rrn1),
+    job:document.getElementById("f-job").value,address:document.getElementById("f-address").value,
+    status:document.getElementById("f-status").value,type:document.getElementById("f-type").value,
+    insurer:document.getElementById("f-insurer").value,contract:document.getElementById("f-contract").value,
+    contractDate:document.getElementById("f-contractDate").value,lastMeeting:document.getElementById("f-lastMeeting").value,
+    priority:document.getElementById("f-priority").value,follow:document.getElementById("f-follow").value,
+    health:document.getElementById("f-health").value,memo:document.getElementById("f-memo").value
+  };
+  document.getElementById("modalBg").className="modal-bg";
+  if(editingId){await updateDoc(doc(db,"clients",editingId),data);selectedId=editingId;}
+  else{const ref=await addDoc(collection(db,"clients"),data);selectedId=ref.id;}
+  await loadClients(); if(selectedId) selectClient(selectedId);
+};
+document.getElementById("modalBg").addEventListener("click",e=>{if(e.target===document.getElementById("modalBg"))closeModal();});
+</script>
+</body>
+</html>
